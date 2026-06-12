@@ -8,7 +8,7 @@ The primary objective of this project is to move beyond standard, one-dimensiona
 
 Traditional real estate valuation models rely heavily on structural attributes (e.g., square footage, bedroom count), often missing the intangible geospatial elements that drive market desirability—such as neighborhood green cover, road density, and immediate curb appeal.
 
-This project solves this by designing a multimodal regression pipeline that programmatically acquires localized satellite imagery and fuses these unstructured visual signals with structured historical housing data into a unified predictive framework. 🌍
+This project solves this by designing a multimodal regression pipeline that programmatically acquires localized satellite imagery and fuses these unstructured visual signals with structured historical housing data into a unified predictive framework. 
 
 ---
 
@@ -16,12 +16,12 @@ This project solves this by designing a multimodal regression pipeline that prog
 
 The project utilizes a hybrid dataset consisting of both historical tabular records and programmatically fetched high-resolution satellite images.
 
-### 📊 Tabular Data
+### Tabular Data
 
 The structured dataset includes **16,209 records** containing core property attributes such as:
 price, bedrooms, bathrooms, sqft_living, grade, condition, yr_built, yr_renovated, zipcode, latitude, longitude etc
 
-### 🛰️ Visual Data
+### Visual Data
 
 Using the spatial coordinates provided in the tabular dataset, a custom image-fetching pipeline was engineered to download **16,209 corresponding training images**.
 
@@ -73,40 +73,26 @@ Features such as **sqft_living15** confirmed that a property's market value is h
 
 # 5. Valuation Using Tabular Data
 
-Before introducing imagery, a robust tabular baseline was established.
+Before introducing imagery, a robust tabular baseline was established.Raw features were mathematically transformed to expose underlying economic drivers:
 
-Raw features were mathematically transformed to expose underlying economic drivers:
-
-#### 📅 Temporal Decomposition
+####  Temporal Decomposition
 
 The raw date string was broken down into cyclical and linear numeric components:
+sale_year, sale_month, day_of_month and day_of_week. This allows the model to map inflation adjustments and seasonal market trends rather than treating the sale date as a static string.
 
-* sale_year
-* sale_month
-* day_of_month
-* day_of_week
+####  Zipcode Target Encoding
 
-This allows the model to map inflation adjustments and seasonal market trends rather than treating the sale date as a static string.
+Treating zip codes as high-cardinality categorical variables often leads to sparse tree splits. Instead, target encoding mapped each zip code to its median training property price, generating a continuous **"Location Index"** that directly quantifies a neighborhood's economic baseline.
 
-#### 📍 Zipcode Target Encoding
+#### Effective Built Year & House Age
 
-Treating zip codes as high-cardinality categorical variables often leads to sparse tree splits.
-
-Instead, target encoding mapped each zip code to its median training property price, generating a continuous **"Location Index"** that directly quantifies a neighborhood's economic baseline.
-
-#### 🏠 Effective Built Year & House Age
-
-A structure's age isn't strictly defined by its original construction.
-
-An **effective_built_year** was calculated:
+A structure's age isn't strictly defined by its original construction. An **effective_built_year** was calculated:
 
 * If `yr_renovated > 0`, the renovation year superseded the build year.
 
 The final **house_age** feature accurately reflected modern wear-and-tear.
 
-An XGBoost regressor, heavily tuned via an Optuna hyperparameter search, was trained on this engineered tabular set.
-
-The pure tabular model achieved a baseline:
+An XGBoost regressor, heavily tuned via an Optuna hyperparameter search, was trained on this engineered tabular set.The pure tabular model achieved a baseline:
 
 | Model                   | RMSE       | R²   |
 | ----------------------- | ---------- | ---- |
@@ -120,39 +106,25 @@ To inject the "environmental context" into the valuation, the visual data pipeli
 
 ### 🗺️ Geospatial Mapping & Acquisition
 
-Raw latitude and longitude coordinates were mapped to Tile Coordinates via the Mercator Projection.
-
-By mathematically converting degrees to radians and applying logarithmic scaling mapping, exact image tiles representing the property's roof and immediate yard were downloaded programmatically.
+Raw latitude and longitude coordinates were mapped to Tile Coordinates via the Mercator Projection.By mathematically converting degrees to radians and applying logarithmic scaling mapping, exact image tiles representing the property's roof and immediate yard were downloaded programmatically.
 
 ### 🧠 High-Dimensional Embedding Extraction
 
-Images were resized to **380 × 380** and passed through an **EfficientNet-B4** architecture.
-
-The network's final classification layer was stripped, turning the model into a pure feature extractor.
-
-By tapping into the **global_average_pooling** layer, the model output a raw vector of **1,792 dimensions** per property.
-
-This allowed the pipeline to inherit the network's visual common sense—recognizing shapes, textures, road density, and green cover.
+Images were resized to **380 × 380** and passed through an **EfficientNet-B4** architecture.The network's final classification layer was stripped, turning the model into a pure feature extractor.By tapping into the **global_average_pooling** layer, the model output a raw vector of **1,792 dimensions** per property.This allowed the pipeline to inherit the network's visual common sense—recognizing shapes, textures, road density, and green cover.
 
 ### 📉 Visual Signal Compression (PCA)
 
-Directly feeding 1,792 visual features alongside a handful of tabular features would trigger the **Curse of Dimensionality**, overwhelming the XGBoost model with noise.
-
-To compress the signal:
+Directly feeding 1,792 visual features alongside a handful of tabular features would trigger the **Curse of Dimensionality**, overwhelming the XGBoost model with noise.To compress the signal:
 
 * Embeddings were standardized.
 * PCA was applied.
 * Variance retention threshold was targeted at **40%**.
 
-The process successfully condensed the **1,792 features down to the 12 most significant principal components**.
-
-This achieved a **99% reduction in feature space** while safely retaining the core visual markers.
+The process successfully condensed the **1,792 features down to the 12 most significant principal components**. This achieved a **99% reduction in feature space** while safely retaining the core visual markers.
 
 ### ⚙️ Late-Fusion & Tuning
 
-The 12 continuous PCA features were horizontally concatenated with the engineered tabular dataset.
-
-A final extensive Optuna sweep over **2,500 estimators** stabilized the complex multimodal architecture, settling on highly regularized parameters such as:
+The 12 continuous PCA features were horizontally concatenated with the engineered tabular dataset.A final extensive Optuna sweep over **2,500 estimators** stabilized the complex multimodal architecture, settling on highly regularized parameters such as:
 
 * L1 regularization (`reg_alpha = 19.11`)
 * Depthwise tree growth
@@ -182,11 +154,7 @@ The comparative cross-validation performance of the two architectures yielded th
 
 ## 🎯 Conclusion
 
-Integrating satellite imagery effectively engineers an automated, programmatic framework for holistic property valuation.
-
-However, the multimodal pipeline recorded a very slight decrease in RMSE and increase in R² score compared to the tabular baseline.
-
-This outcome reveals two critical insights:
+Integrating satellite imagery effectively engineers an automated, programmatic framework for holistic property valuation.However, the multimodal pipeline recorded a very slight decrease in RMSE and increase in R² score compared to the tabular baseline. This outcome reveals two critical insights:
 
 1. The heavily engineered tabular features (specifically the median-encoded Location Index) already encapsulate the vast majority of the pricing signal.
 
@@ -194,6 +162,4 @@ This outcome reveals two critical insights:
 
 ### 🚀 Future Work
 
-Future iterations will replace the generalized EfficientNet weights by mathematically fine-tuning the CNN backbone specifically on aerial and satellite-view datasets (such as ResNet or Vision Transformers pre-trained on remote sensing tasks).
-
-This should dramatically improve the granularity and economic relevance of the extracted visual features.
+Future iterations will replace the generalized EfficientNet weights by mathematically fine-tuning the CNN backbone specifically on aerial and satellite-view datasets (such as ResNet or Vision Transformers pre-trained on remote sensing tasks).This should dramatically improve the granularity and economic relevance of the extracted visual features.
