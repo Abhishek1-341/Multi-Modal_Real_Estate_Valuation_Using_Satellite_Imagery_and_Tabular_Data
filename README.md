@@ -1,1 +1,1 @@
-# Multi-Modal_Real_Estate_Valuation_Using_Satellite_Imagery_and_Tabular_Data
+# Multi-Modal Real Estate Valuation Using Satellite Imagery and Tabular Data
